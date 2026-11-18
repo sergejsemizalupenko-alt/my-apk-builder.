@@ -6,44 +6,22 @@
 <title>Мой HTML to APK</title>
 <style>
   :root { color-scheme: dark; }
-  body {
-    margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center;
-    background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif;
-    min-height: 100vh; box-sizing: border-box;
-  }
+  body { margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; box-sizing: border-box; }
   .header { text-align: center; margin-bottom: 20px; }
   .header h1 { color: #38bdf8; margin: 0 0 5px 0; font-size: 26px; }
   .header p { color: #94a3b8; margin: 0; font-size: 14px; }
-  
-  .card {
-    background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 400px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #334155;
-  }
-  
+  .card { background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #334155; }
   .field { margin-bottom: 20px; }
   label { display: block; margin-bottom: 8px; font-size: 15px; color: #cbd5e1; font-weight: bold; }
-  input[type="text"] {
-    width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #475569;
-    background: #0f172a; color: #fff; font-size: 16px; box-sizing: border-box; outline: none;
-  }
-  input[type="text"]:focus { border-color: #38bdf8; }
-  
+  input[type="text"], input[type="password"] { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 16px; box-sizing: border-box; outline: none; }
+  input[type="text"]:focus, input[type="password"]:focus { border-color: #38bdf8; }
   input[type="file"] { display: none; }
-  .file-btn {
-    display: block; text-align: center; padding: 14px; border-radius: 10px;
-    background: #334155; color: #e2e8f0; cursor: pointer; border: 2px dashed #64748b;
-    font-size: 16px; transition: 0.2s;
-  }
+  .file-btn { display: block; text-align: center; padding: 14px; border-radius: 10px; background: #334155; color: #e2e8f0; cursor: pointer; border: 2px dashed #64748b; font-size: 16px; transition: 0.2s; }
   .file-btn.active { background: #166534; border-color: #22c55e; color: #bbf7d0; border-style: solid; }
-  
-  .build-btn {
-    width: 100%; padding: 16px; border-radius: 12px; border: none;
-    background: #22c55e; color: #052e16; font-size: 18px; font-weight: bold;
-    cursor: pointer; transition: 0.2s; margin-top: 10px;
-  }
+  .build-btn { width: 100%; padding: 16px; border-radius: 12px; border: none; background: #22c55e; color: #052e16; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
   .build-btn:active { transform: scale(0.97); }
-  
-  .status { text-align: center; margin-top: 20px; font-size: 15px; color: #fbbf24; min-height: 22px; }
+  .build-btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; }
+  .status { text-align: center; margin-top: 20px; font-size: 14px; color: #fbbf24; min-height: 22px; word-wrap: break-word; }
 </style>
 </head>
 <body>
@@ -55,8 +33,8 @@
 
 <div class="card">
   <div class="field">
-    <label>Название приложения:</label>
-    <input type="text" id="appName" placeholder="Например: Моя Игра">
+    <label>Название приложения (латиницей):</label>
+    <input type="text" id="appName" placeholder="Например: SnakeGame">
   </div>
 
   <div class="field">
@@ -65,7 +43,12 @@
     <input type="file" id="fileInput" accept=".html">
   </div>
 
-  <button class="build-btn" onclick="startBuild()">Собрать APK</button>
+  <div class="field">
+    <label>Твой GitHub Токен (ключ доступа):</label>
+    <input type="password" id="ghToken" placeholder="ghp_...">
+  </div>
+
+  <button class="build-btn" id="buildBtn" onclick="startBuild()">Собрать APK</button>
   
   <div class="status" id="status">Ожидание файлов...</div>
 </div>
@@ -74,6 +57,11 @@
   const fileInput = document.getElementById('fileInput');
   const fileLabel = document.getElementById('fileLabel');
   const statusText = document.getElementById('status');
+  const buildBtn = document.getElementById('buildBtn');
+
+  // Твои данные с GitHub
+  const GITHUB_USER = "sergejsemizalupenko-alt"; 
+  const GITHUB_REPO = "my-apk-builder";
 
   fileInput.addEventListener('change', function(e) {
     if (e.target.files.length > 0) {
@@ -84,19 +72,68 @@
     }
   });
 
-  function startBuild() {
+  async function startBuild() {
     const appName = document.getElementById('appName').value.trim();
-    if (!appName) {
-      alert("Пожалуйста, напиши название приложения!");
-      return;
-    }
-    if (fileInput.files.length === 0) {
-      alert("Пожалуйста, выбери HTML-файл!");
-      return;
-    }
+    const token = document.getElementById('ghToken').value.trim();
 
-    statusText.innerText = "⏳ Сборка... (в этой версии кнопка пока демонстративная)";
-    statusText.style.color = "#fbbf24";
+    if (!appName) { alert("Напиши название!"); return; }
+    if (fileInput.files.length === 0) { alert("Выбери HTML-файл!"); return; }
+    if (!token) { alert("Вставь свой GitHub Токен (ключ)!"); return; }
+
+    buildBtn.disabled = true;
+    statusText.innerText = "⏳ Читаем файл...";
+    statusText.style.color = "#38bdf8";
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = async function(e) {
+      try {
+        statusText.innerText = "🚀 Отправляем файл на GitHub...";
+        
+        const htmlContent = e.target.result;
+        const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+
+        const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/index.html`;
+        const headers = {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github.v3+json",
+          "Content-Type": "application/json"
+        };
+
+        const getRes = await fetch(url, { headers });
+        let sha = "";
+        if (getRes.ok) {
+          const data = await getRes.json();
+          sha = data.sha;
+        } else if (getRes.status !== 404) {
+           throw new Error("Ошибка доступа. Проверь токен.");
+        }
+
+        const putRes = await fetch(url, {
+          method: 'PUT',
+          headers: headers,
+          body: JSON.stringify({
+            message: `Сборка игры: ${appName}`,
+            content: base64Content,
+            sha: sha || undefined
+          })
+        });
+
+        if (putRes.ok) {
+          statusText.innerHTML = "✅ Успех!<br>Робот собирает игру. Зайди на GitHub во вкладку <b>Actions</b>, чтобы скачать APK.";
+          statusText.style.color = "#22c55e";
+        } else {
+          const err = await putRes.json();
+          throw new Error(err.message);
+        }
+      } catch (err) {
+        statusText.innerText = "❌ Ошибка: " + err.message;
+        statusText.style.color = "#ef4444";
+        buildBtn.disabled = false;
+      }
+    };
+    reader.readAsText(file);
   }
 </script>
 </body>
